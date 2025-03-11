@@ -91,9 +91,6 @@ function getDataFromAPI() {
     });
 }
 
-
-
-
 function extractGameData(result) {
     const games = result.trim().split("\n\n\n");
 
@@ -160,27 +157,51 @@ function renderChart(data) {
     chartInstance = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: data.map(d => d.hour), // Hour of the day
-            datasets: [{
-                label: 'Win Rate',
-                data: data.map(d => d.winRate),
-                borderColor: 'rgb(123, 58, 255)',
-                backgroundColor: 'rgb(123, 58, 255)',
-                tension: 0.1
-            }]
+            labels: data.map(d => d.hour),
+            datasets: [
+                {
+                    label: 'Win Rate',
+                    data: data.map(d => d.winRate),
+                    borderColor: 'rgb(123, 58, 255)',
+                    backgroundColor: 'rgb(123, 58, 255)',
+                    tension: 0.1,
+                    pointRadius: 0 // Removes default points from the line
+                },
+                {
+                    label: 'Sample Size',
+                    data: data.map(d => d.winRate), // Same points as win rate
+                    borderColor: 'rgb(29, 242, 242)',
+                    backgroundColor: 'rgb(29, 242, 242)',
+                    pointRadius: data.map(d => Math.min(15, (d.sampleSize / data.reduce((sum, d) => sum + d.sampleSize, 0)) * 200)),
+                    
+                    pointBackgroundColor: 'rgb(29, 242, 242)',
+                    type: 'line', // Draws circles on top without a connecting line
+                    borderColor: 'rgba(0, 0, 0, 0)', // Hides connecting line
+                    showLine: false // Ensures it's just points
+                }
+            ]
         },
         options: {
             scales: {
-                x: {
-                    ticks: {
-                        stepSize: 1
-                    }
-                },
+                x: { ticks: { stepSize: 1 } },
                 y: {
                     min: 0,
                     max: 1
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            if (context.dataset.label === 'Sample Size') {
+                                return `Games Played: ${data[context.dataIndex].sampleSize}`;
+                            }
+                            return `Win Rate: ${(context.raw * 100).toFixed(1)}%`;
+                        }
+                    }
                 }
             }
         }
     });
 }
+
