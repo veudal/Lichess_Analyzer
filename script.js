@@ -21,20 +21,28 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 async function start() {
     const usernameInput = document.getElementById('username');
+    const confirmBtn = document.getElementById('confirmBtn');
     player = usernameInput.value.trim();
+    usernameInput.disabled = true;
 
-    if (player) {
+    try {
+        if (player) {
+            confirmBtn.style.display = 'none';
             const result = await getDataFromAPI();
             const gameData = extractGameData(result);
             loadData(gameData);
+
             window.scrollTo({
                 top: document.body.scrollHeight,
-                behavior: 'smooth' // Enables smooth scrolling
+                behavior: 'smooth'
             });
-
         } else {
             alert("Please enter a valid username.");
         }
+    } finally {
+        usernameInput.disabled = false;  // Ensures this always runs
+        confirmBtn.style.display = '';   // Clears inline 'none' to restore original display
+    }
 }
 
 function detectTimezone() {
@@ -84,8 +92,6 @@ function getDataFromAPI() {
             progressDiv.style.display = "none";
             reject(new Error("Request timed out"));
         };
-
-        xhr.timeout = 100000000000; // Timeout in ms (e.g., 10 seconds)
 
         xhr.send();
     });
@@ -165,31 +171,40 @@ function renderChart(data) {
                     borderColor: 'rgb(123, 58, 255)',
                     backgroundColor: 'rgb(123, 58, 255)',
                     tension: 0.1,
-                    pointRadius: 0 // Removes default points from the line
+                    pointRadius: 0
                 },
                 {
                     label: 'Sample Size',
-                    data: data.map(d => d.winRate), // Same points as win rate
+                    data: data.map(d => d.winRate),
                     borderColor: 'rgb(29, 242, 242)',
                     backgroundColor: 'rgb(29, 242, 242)',
-                    pointRadius: data.map(d => Math.min(15, (d.sampleSize / data.reduce((sum, d) => sum + d.sampleSize, 0)) * 200)),
-                    
+                    pointRadius: data.map(d => 
+                        Math.min(15, (d.sampleSize / data.reduce((sum, d) => sum + d.sampleSize, 0)) * 200)
+                    ),
                     pointBackgroundColor: 'rgb(29, 242, 242)',
-                    type: 'line', // Draws circles on top without a connecting line
-                    borderColor: 'rgba(0, 0, 0, 0)', // Hides connecting line
-                    showLine: false // Ensures it's just points
+                    type: 'line',
+                    borderColor: 'rgba(0, 0, 0, 0)',
+                    showLine: false
                 }
             ]
         },
         options: {
             scales: {
                 x: { ticks: { stepSize: 1 } },
-                y: {
-                    min: 0,
-                    max: 1
-                }
+                y: { min: 0, max: 1 }
             },
             plugins: {
+                title: {
+                    display: true,
+                    text: `Win Rate Analysis for ${player}`,
+                    font: {
+                        size: 18
+                    },
+                    padding: {
+                        top: 10,
+                        bottom: 10
+                    }
+                },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
@@ -204,4 +219,3 @@ function renderChart(data) {
         }
     });
 }
-
