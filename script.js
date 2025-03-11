@@ -1,5 +1,3 @@
-import * as d3 from 'https://cdn.jsdelivr.net/npm/d3@6.7.0/dist/d3.min.js';
-
 let chartInstance;
 let player;
 
@@ -22,13 +20,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 async function start() {
     const usernameInput = document.getElementById('username');
     const confirmBtn = document.getElementById('confirmBtn');
+
     player = usernameInput.value.trim();
     usernameInput.disabled = true;
 
     try {
         if (player) {
             confirmBtn.style.display = 'none';
-            const result = await getDataFromAPI();
+            progress.style.display = "block";
+
+            const total = await getTotalGames();
+            const result = await getDataFromAPI(total);
             const gameData = extractGameData(result);
             loadData(gameData);
 
@@ -45,46 +47,57 @@ async function start() {
     }
 }
 
-function detectTimezone() {
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    timezoneLabel.textContent = "Detected timezone: " + timezone; 
+async function getTotalGames() {
+    let count = 0;
+
+    const response = await fetch("https://lichess.org/api/user/" + player);
+    const data = JSON.parse(await response.text());
+
+
+    const allowedModes = ["ultraBullet", "bullet", "blitz", "rapid", "classical"];
+
+    // Get game count from: ultrabullet, bullet, blitz, rapid, classical
+    Object.entries(data.perfs).forEach(([mode, game]) => {
+        if (allowedModes.includes(mode)) {
+          count += game.games;
+        }
+    });
+    return count;
 }
 
-function getDataFromAPI() {
-    const progressDiv = document.getElementById("progress");
-    const downloadedKB = document.getElementById("downloadedKB");
+function detectTimezone() {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    timezoneLabel.textContent = "Detected timezone: " + timezone;
+}
 
-    // Show progress
-    progress.style.display = "block";
+function getDataFromAPI(total) {
+    const downloadedKB = document.getElementById("downloadedKB");
+    const progressDiv = document.getElementById("progress");
 
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
 
         // Define the request
-        xhr.open("GET", "https://lichess.org/api/games/user/" + player + "?tags=true&clocks=false&evals=false&opening=false&literate=false", true);
-
-        // Check if the server provides Content-Length
-        const contentLength = xhr.getResponseHeader('Content-Length');
-        let totalSize = contentLength ? parseInt(contentLength) : null;
+        xhr.open("GET", "https://lichess.org/api/games/user/" + player + "?tags=true&clocks=false&evals=false&opening=false&literate=false&perfType=ultraBullet%2Cbullet%2Cblitz%2Crapid%2Cclassical%2Cstandard", true);
+        xhr.responseType = 'text';
 
         xhr.onprogress = function (event) {
-            const receivedKB = (event.loaded / 1024).toFixed(2);
-            downloadedKB.textContent = `Downloaded: ${receivedKB} KB`;
+            const receivedKB = parseInt(event.loaded / 1024);
+            downloadedKB.textContent = `${receivedKB} KB (Fetching ${total} games)`;
         };
 
         xhr.onload = function () {
+            progressDiv.style.display = "none";
             if (xhr.status === 200) {
-                progressDiv.style.display = "none"; 
                 resolve(xhr.responseText); // Return the response text
             } else {
-                progressDiv.style.display = "none"; 
                 reject(new Error("Failed to fetch data"));
                 alert("Player not found.")
             }
         };
 
         xhr.onerror = function () {
-            progressDiv.style.display = "none"; 
+            progressDiv.style.display = "none";
             reject(new Error("Error fetching data"));
         };
 
@@ -178,7 +191,7 @@ function renderChart(data) {
                     data: data.map(d => d.winRate),
                     borderColor: 'rgb(29, 242, 242)',
                     backgroundColor: 'rgb(29, 242, 242)',
-                    pointRadius: data.map(d => 
+                    pointRadius: data.map(d =>
                         Math.min(15, (d.sampleSize / data.reduce((sum, d) => sum + d.sampleSize, 0)) * 200)
                     ),
                     pointBackgroundColor: 'rgb(29, 242, 242)',
